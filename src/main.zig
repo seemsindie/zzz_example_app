@@ -40,6 +40,9 @@ fn index(ctx: *zzz.Context) !void {
         \\    <li><a href="/api/limited">Rate Limited</a> — rate limiting demo (10 req/min)</li>
         \\    <li><a href="/download/build.zig">Download build.zig</a> — sendFile demo</li>
         \\    <li><a href="/error-demo">Error Demo</a> — global error handler demo</li>
+        \\    <li>GET /auth/bearer — Bearer token auth demo (requires Authorization header)</li>
+        \\    <li>GET /auth/basic — Basic auth demo (curl -u user:pass)</li>
+        \\    <li>GET /auth/jwt — JWT auth demo (requires valid HS256 token)</li>
         \\  </ul>
         \\  <script src="/static/js/app.js"></script>
         \\</body>
@@ -331,6 +334,52 @@ fn errorDemo(_: *zzz.Context) !void {
     return error.IntentionalDemoError;
 }
 
+// ── Auth demos ────────────────────────────────────────────────────────
+
+/// Bearer token demo.
+///
+/// Try: curl -H "Authorization: Bearer my-secret-token" http://127.0.0.1:9000/auth/bearer
+fn bearerDemo(ctx: *zzz.Context) !void {
+    const token = ctx.getAssign("bearer_token") orelse "none";
+    var buf: [256]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"auth":"bearer","token":"{s}"}}
+    , .{token}) catch
+        \\{"error":"response too large"}
+    ;
+    ctx.json(.ok, body);
+}
+
+/// Basic auth demo.
+///
+/// Try: curl -u alice:secret http://127.0.0.1:9000/auth/basic
+fn basicDemo(ctx: *zzz.Context) !void {
+    const username = ctx.getAssign("auth_username") orelse "none";
+    const password = ctx.getAssign("auth_password") orelse "none";
+    var buf: [256]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"auth":"basic","username":"{s}","password":"{s}"}}
+    , .{ username, password }) catch
+        \\{"error":"response too large"}
+    ;
+    ctx.json(.ok, body);
+}
+
+/// JWT auth demo.
+///
+/// Try: generate a JWT at jwt.io with secret "zzz-demo-secret", then:
+///   curl -H "Authorization: Bearer <token>" http://127.0.0.1:9000/auth/jwt
+fn jwtDemo(ctx: *zzz.Context) !void {
+    const payload = ctx.getAssign("jwt_payload") orelse "none";
+    var buf: [512]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"auth":"jwt","payload":"{s}"}}
+    , .{payload}) catch
+        \\{"error":"response too large"}
+    ;
+    ctx.json(.ok, body);
+}
+
 // ── Router ─────────────────────────────────────────────────────────────
 
 const App = zzz.Router.define(.{
@@ -352,27 +401,35 @@ const App = zzz.Router.define(.{
         .update = updatePost,
         .delete_handler = deletePost,
     }) ++ &[_]zzz.RouteDef{
-        zzz.Router.get("/", index),
-        zzz.Router.get("/about", about),
+        zzz.Router.get("/", index).named("home"),
+        zzz.Router.get("/about", about).named("about"),
 
         // Session / Cookie / Redirect demos
-        zzz.Router.get("/login", loginPage),
-        zzz.Router.get("/dashboard", dashboard),
+        zzz.Router.get("/login", loginPage).named("login"),
+        zzz.Router.get("/dashboard", dashboard).named("dashboard"),
         zzz.Router.post("/api/protected", protectedAction),
         zzz.Router.get("/old-page", oldPage),
         zzz.Router.get("/set-cookie", setCookieDemo),
         zzz.Router.get("/delete-cookie", deleteCookieDemo),
 
         // API routes
-        zzz.Router.get("/api/status", apiStatus),
-        zzz.Router.get("/api/users", listUsers),
-        zzz.Router.get("/api/users/:id", getUser),
+        zzz.Router.get("/api/status", apiStatus).named("api_status"),
+        zzz.Router.get("/api/users", listUsers).named("users"),
+        zzz.Router.get("/api/users/:id", getUser).named("user"),
         zzz.Router.post("/api/users", createUser),
         zzz.Router.post("/api/echo", echoBody),
         zzz.Router.post("/api/upload", uploadHandler),
 
     } ++ zzz.Router.scope("/api", &[_]zzz.HandlerFn{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &[_]zzz.RouteDef{
         zzz.Router.get("/limited", rateLimitedHandler),
+    })
+    // Auth demos — each scope applies its own auth middleware
+    ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.bearerAuth(.{ .required = true })}, &[_]zzz.RouteDef{
+        zzz.Router.get("/bearer", bearerDemo),
+    }) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.basicAuth(.{ .required = true })}, &[_]zzz.RouteDef{
+        zzz.Router.get("/basic", basicDemo),
+    }) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.jwtAuth(.{ .secret = "zzz-demo-secret", .required = true })}, &[_]zzz.RouteDef{
+        zzz.Router.get("/jwt", jwtDemo),
     }) ++ &[_]zzz.RouteDef{
 
         // File download demo
