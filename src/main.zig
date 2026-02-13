@@ -31,6 +31,15 @@ fn index(ctx: *zzz.Context) !void {
         \\    <li><a href="/api/posts/hello-world">Post: hello-world</a></li>
         \\    <li>POST /api/echo — body parser echo (JSON, form, multipart, text)</li>
         \\    <li>POST /api/upload — file upload demo</li>
+        \\    <li><a href="/login">Login</a> — session + CSRF token demo</li>
+        \\    <li><a href="/dashboard">Dashboard</a> — session data demo</li>
+        \\    <li>POST /api/protected — CSRF-protected endpoint</li>
+        \\    <li><a href="/old-page">Old Page</a> — redirect demo (301)</li>
+        \\    <li><a href="/set-cookie">Set Cookie</a> — cookie demo</li>
+        \\    <li><a href="/delete-cookie">Delete Cookie</a> — cookie deletion demo</li>
+        \\    <li><a href="/api/limited">Rate Limited</a> — rate limiting demo (10 req/min)</li>
+        \\    <li><a href="/download/build.zig">Download build.zig</a> — sendFile demo</li>
+        \\    <li><a href="/error-demo">Error Demo</a> — global error handler demo</li>
         \\  </ul>
         \\  <script src="/static/js/app.js"></script>
         \\</body>
@@ -182,6 +191,83 @@ fn uploadHandler(ctx: *zzz.Context) !void {
     }
 }
 
+// ── Session / Cookie / Redirect demos ─────────────────────────────────
+
+/// Shows a login page with a CSRF token. Sets a session cookie.
+///
+/// Try: curl -v http://127.0.0.1:5000/login
+fn loginPage(ctx: *zzz.Context) !void {
+    const csrf_token = ctx.getAssign("csrf_token") orelse "no-token";
+    const session_id = ctx.getAssign("session_id") orelse "no-session";
+
+    var buf: [1024]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"page":"login","session_id":"{s}","csrf_token":"{s}"}}
+    , .{ session_id, csrf_token }) catch
+        \\{{"error":"response too large"}}
+    ;
+    ctx.json(.ok, body);
+}
+
+/// Dashboard — shows session data. Requires a session cookie.
+///
+/// Try: curl -v -b "zzz_session=<id>" http://127.0.0.1:5000/dashboard
+fn dashboard(ctx: *zzz.Context) !void {
+    const session_id = ctx.getAssign("session_id") orelse "no-session";
+    const user = ctx.getAssign("user_name") orelse "guest";
+
+    var buf: [512]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"page":"dashboard","session_id":"{s}","user":"{s}"}}
+    , .{ session_id, user }) catch
+        \\{{"error":"response too large"}}
+    ;
+    ctx.json(.ok, body);
+}
+
+/// Protected endpoint — requires valid CSRF token.
+///
+/// Try: curl -X POST -d "_csrf_token=<token>" -b "zzz_session=<id>" http://127.0.0.1:5000/api/protected
+fn protectedAction(ctx: *zzz.Context) !void {
+    ctx.assign("user_name", "alice");
+    ctx.json(.ok,
+        \\{"result":"success","message":"CSRF validation passed"}
+    );
+}
+
+/// Redirect demo.
+///
+/// Try: curl -v http://127.0.0.1:5000/old-page
+fn oldPage(ctx: *zzz.Context) !void {
+    ctx.redirect("/about", .moved_permanently);
+}
+
+/// Cookie demo — sets a custom cookie and returns it.
+///
+/// Try: curl -v http://127.0.0.1:5000/set-cookie
+fn setCookieDemo(ctx: *zzz.Context) !void {
+    ctx.setCookie("theme", "dark", .{ .path = "/", .max_age = 86400 });
+    ctx.json(.ok,
+        \\{"message":"theme cookie set to dark"}
+    );
+}
+
+/// Cookie demo — reads and deletes a cookie.
+///
+/// Try: curl -v -b "theme=dark" http://127.0.0.1:5000/delete-cookie
+fn deleteCookieDemo(ctx: *zzz.Context) !void {
+    const theme = ctx.getCookie("theme") orelse "not set";
+    ctx.deleteCookie("theme", "/");
+
+    var buf: [256]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf,
+        \\{{"message":"deleted theme cookie","was":"{s}"}}
+    , .{theme}) catch
+        \\{{"error":"response too large"}}
+    ;
+    ctx.json(.ok, body);
+}
+
 fn listPosts(ctx: *zzz.Context) !void {
     ctx.json(.ok,
         \\{"posts": [{"slug": "hello-world", "title": "Hello World"}, {"slug": "zig-is-great", "title": "Zig Is Great"}]}
@@ -196,19 +282,86 @@ fn getPost(ctx: *zzz.Context) !void {
     );
 }
 
+fn createPost(ctx: *zzz.Context) !void {
+    const title = ctx.param("title") orelse "untitled";
+    _ = title;
+    ctx.json(.created,
+        \\{"id": 1, "created": true}
+    );
+}
+
+fn updatePost(ctx: *zzz.Context) !void {
+    const id = ctx.param("id") orelse "0";
+    _ = id;
+    ctx.json(.ok,
+        \\{"updated": true}
+    );
+}
+
+fn deletePost(ctx: *zzz.Context) !void {
+    const id = ctx.param("id") orelse "0";
+    _ = id;
+    ctx.json(.ok,
+        \\{"deleted": true}
+    );
+}
+
+/// Rate-limited endpoint demo.
+///
+/// Try: curl http://127.0.0.1:9000/api/limited (rapid requests → 429)
+fn rateLimitedHandler(ctx: *zzz.Context) !void {
+    ctx.json(.ok,
+        \\{"message": "You are within the rate limit"}
+    );
+}
+
+/// File download demo.
+///
+/// Try: curl http://127.0.0.1:9000/download/build.zig
+fn downloadFile(ctx: *zzz.Context) !void {
+    const filename = ctx.param("filename") orelse {
+        ctx.text(.bad_request, "missing filename");
+        return;
+    };
+    ctx.sendFile(filename, null);
+}
+
+/// Endpoint that deliberately errors — for error handler demo.
+fn errorDemo(_: *zzz.Context) !void {
+    return error.IntentionalDemoError;
+}
+
 // ── Router ─────────────────────────────────────────────────────────────
 
 const App = zzz.Router.define(.{
     .middleware = &.{
+        zzz.errorHandler(.{ .show_details = true }),
         zzz.logger,
+        zzz.gzipCompress(.{}),
         requestId,
         zzz.cors(.{}),
         zzz.bodyParser,
+        zzz.session(.{}),
+        zzz.csrf(.{}),
         zzz.staticFiles(.{ .dir = "public", .prefix = "/static" }),
     },
-    .routes = &.{
+    .routes = zzz.Router.resource("/api/posts", .{
+        .index = listPosts,
+        .show = getPost,
+        .create = createPost,
+        .update = updatePost,
+        .delete_handler = deletePost,
+    }) ++ &[_]zzz.RouteDef{
         zzz.Router.get("/", index),
         zzz.Router.get("/about", about),
+
+        // Session / Cookie / Redirect demos
+        zzz.Router.get("/login", loginPage),
+        zzz.Router.get("/dashboard", dashboard),
+        zzz.Router.post("/api/protected", protectedAction),
+        zzz.Router.get("/old-page", oldPage),
+        zzz.Router.get("/set-cookie", setCookieDemo),
+        zzz.Router.get("/delete-cookie", deleteCookieDemo),
 
         // API routes
         zzz.Router.get("/api/status", apiStatus),
@@ -217,8 +370,16 @@ const App = zzz.Router.define(.{
         zzz.Router.post("/api/users", createUser),
         zzz.Router.post("/api/echo", echoBody),
         zzz.Router.post("/api/upload", uploadHandler),
-        zzz.Router.get("/api/posts", listPosts),
-        zzz.Router.get("/api/posts/:slug", getPost),
+
+    } ++ zzz.Router.scope("/api", &[_]zzz.HandlerFn{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &[_]zzz.RouteDef{
+        zzz.Router.get("/limited", rateLimitedHandler),
+    }) ++ &[_]zzz.RouteDef{
+
+        // File download demo
+        zzz.Router.get("/download/:filename", downloadFile),
+
+        // Error handler demo
+        zzz.Router.get("/error-demo", errorDemo),
     },
 });
 
@@ -230,7 +391,7 @@ pub fn main(init: std.process.Init) !void {
 
     var server = zzz.Server.init(allocator, .{
         .host = "127.0.0.1",
-        .port = 5000,
+        .port = 9000,
     }, App.handler);
 
     try server.listen(io);
