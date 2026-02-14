@@ -10,7 +10,15 @@ fn requestId(ctx: *zzz.Context) !void {
 
 // ── Templates ──────────────────────────────────────────────────────────
 
-const IndexTemplate = zzz.template(@embedFile("templates/index.html.zzz"));
+const AppLayout = zzz.templateWithPartials(
+    @embedFile("templates/layout.html.zzz"),
+    .{
+        .nav = @embedFile("templates/partials/nav.html.zzz"),
+    },
+);
+
+const IndexContent = zzz.template(@embedFile("templates/index.html.zzz"));
+const AboutContent = zzz.template(@embedFile("templates/about.html.zzz"));
 
 // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -40,7 +48,7 @@ const index_routes = [_]RouteItem{
 };
 
 fn index(ctx: *zzz.Context) !void {
-    try ctx.render(IndexTemplate, .ok, .{
+    try ctx.renderWithLayout(AppLayout, IndexContent, .ok, .{
         .title = "Zzz Example App",
         .description = "A sample app built with the Zzz web framework.",
         .show_routes = true,
@@ -49,22 +57,9 @@ fn index(ctx: *zzz.Context) !void {
 }
 
 fn about(ctx: *zzz.Context) !void {
-    ctx.html(.ok,
-        \\<!DOCTYPE html>
-        \\<html>
-        \\<head>
-        \\  <title>About - Zzz</title>
-        \\  <link rel="stylesheet" href="/static/css/style.css">
-        \\</head>
-        \\<body>
-        \\  <h1>About Zzz</h1>
-        \\  <p>Zzz is a Phoenix-inspired web framework written in Zig.</p>
-        \\  <p>Blazing fast. Memory safe. Compile-time route resolution.</p>
-        \\  <p><a href="/">Back to home</a></p>
-        \\  <script src="/static/js/app.js"></script>
-        \\</body>
-        \\</html>
-    );
+    try ctx.renderWithLayout(AppLayout, AboutContent, .ok, .{
+        .title = "About",
+    });
 }
 
 fn apiStatus(ctx: *zzz.Context) !void {

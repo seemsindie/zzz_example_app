@@ -1,21 +1,10 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>{{title}} - Zzz</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-  <h1>{{title}}</h1>
-  <p>{{description}}</p>
-  {{#if show_routes}}
-  <h2>Routes</h2>
-  <ul>
-    {{#each routes}}
-    <li>{{{html}}}</li>
-    {{/each}}
-  </ul>
-  {{/if}}
-  {{! Template engine demo }}
-  <script src="/static/js/app.js"></script>
-</body>
-</html>
+<h1>{{title}}</h1>
+<p>{{description}}</p>
+{{#if show_routes}}
+<h2>Routes</h2>
+<ul>
+  {{#each routes}}
+  <li>{{{html}}}</li>
+  {{/each}}
+</ul>
+{{/if}}

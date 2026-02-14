@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{title}} - Zzz</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  {{> nav}}
+  <main>{{{yield}}}</main>
+  <footer><p>Powered by Zzz</p></footer>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
