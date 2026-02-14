@@ -25,6 +25,8 @@ const HtmxDemoContent = zzz.templateWithPartials(
 );
 const CounterPartial = zzz.template(@embedFile("templates/partials/counter.html.zzz"));
 
+const WsDemoContent = zzz.template(@embedFile("templates/ws_demo.html.zzz"));
+
 const HtmxTodosContent = zzz.templateWithPartials(
     @embedFile("templates/htmx_todos.html.zzz"),
     .{ .todo_item = @embedFile("templates/partials/todo_item.html.zzz") },
@@ -61,6 +63,7 @@ const index_routes = [_]RouteItem{
     .{ .html = "GET /auth/jwt &mdash; JWT auth demo (requires valid HS256 token)" },
     .{ .html = "<a href=\"/htmx\">htmx Demo</a> &mdash; htmx counter + greeting demos" },
     .{ .html = "<a href=\"/todos\">Todo List</a> &mdash; htmx CRUD demo" },
+    .{ .html = "<a href=\"/ws-demo\">WebSocket Demo</a> &mdash; WebSocket echo with zzz.js" },
 };
 
 fn index(ctx: *zzz.Context) !void {
@@ -462,6 +465,35 @@ fn htmxTodoDelete(ctx: *zzz.Context) !void {
     });
 }
 
+// ── WebSocket demos ───────────────────────────────────────────────────
+
+fn wsDemo(ctx: *zzz.Context) !void {
+    try ctx.renderWithLayout(AppLayout, WsDemoContent, .ok, .{
+        .title = "WebSocket Demo",
+    });
+}
+
+fn wsEchoOpen(ws: *zzz.WebSocket) void {
+    _ = ws;
+    std.log.info("[WS] client connected", .{});
+}
+
+fn wsEchoMessage(ws: *zzz.WebSocket, msg: zzz.WsMessage) void {
+    switch (msg) {
+        .text => |text| {
+            std.log.info("[WS] echo: {s}", .{text});
+            ws.send(text);
+        },
+        .binary => |data| {
+            ws.sendBinary(data);
+        },
+    }
+}
+
+fn wsEchoClose(_: *zzz.WebSocket, code: u16, _: []const u8) void {
+    std.log.info("[WS] client disconnected (code: {d})", .{code});
+}
+
 // ── Auth demos ────────────────────────────────────────────────────────
 
 /// Bearer token demo.
@@ -522,6 +554,7 @@ const App = zzz.Router.define(.{
         zzz.session(.{}),
         zzz.csrf(.{}),
         zzz.staticFiles(.{ .dir = "public", .prefix = "/static" }),
+        zzz.zzzJs(.{}),
     },
     .routes = zzz.Router.resource("/api/posts", .{
         .index = listPosts,
@@ -540,6 +573,14 @@ const App = zzz.Router.define(.{
         zzz.Router.get("/old-page", oldPage),
         zzz.Router.get("/set-cookie", setCookieDemo),
         zzz.Router.get("/delete-cookie", deleteCookieDemo),
+
+        // WebSocket demo routes
+        zzz.Router.get("/ws-demo", wsDemo),
+        zzz.Router.ws("/ws/echo", .{
+            .on_open = wsEchoOpen,
+            .on_message = wsEchoMessage,
+            .on_close = wsEchoClose,
+        }),
 
         // htmx demo routes
         zzz.Router.get("/htmx", htmxDemo),

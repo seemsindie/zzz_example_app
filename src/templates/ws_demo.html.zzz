@@ -1,0 +1,94 @@
+<h1>WebSocket Echo Demo</h1>
+<p>Connect to <code>ws://127.0.0.1:9000/ws/echo</code> and send messages. They will be echoed back.</p>
+
+<div style="max-width: 600px; margin: 2rem auto;">
+  <div id="status" style="padding: 0.5rem; margin-bottom: 1rem; background: #f0f0f0; border-radius: 4px;">
+    Status: <span id="ws-status">Disconnected</span>
+  </div>
+
+  <div style="margin-bottom: 1rem;">
+    <button id="connect-btn" onclick="doConnect()">Connect</button>
+    <button id="disconnect-btn" onclick="doDisconnect()" disabled>Disconnect</button>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+    <input type="text" id="msg-input" placeholder="Type a message..." style="flex: 1; padding: 0.5rem;" disabled />
+    <button id="send-btn" onclick="doSend()" disabled>Send</button>
+  </div>
+
+  <div id="log" style="border: 1px solid #ccc; padding: 1rem; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; background: #fafafa;">
+  </div>
+</div>
+
+<script src="/__zzz/zzz.js"></script>
+<script>
+  let conn = null;
+
+  function log(msg, color) {
+    const el = document.getElementById('log');
+    const line = document.createElement('div');
+    line.style.color = color || '#333';
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(text, color) {
+    const el = document.getElementById('ws-status');
+    el.textContent = text;
+    el.style.color = color || '#333';
+  }
+
+  function doConnect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = proto + '//' + location.host + '/ws/echo';
+    log('Connecting to ' + url + '...', '#888');
+
+    conn = Zzz.connect(url, { maxRetries: 5 });
+
+    conn.on('open', function() {
+      setStatus('Connected', 'green');
+      log('Connected!', 'green');
+      document.getElementById('connect-btn').disabled = true;
+      document.getElementById('disconnect-btn').disabled = false;
+      document.getElementById('msg-input').disabled = false;
+      document.getElementById('send-btn').disabled = false;
+    });
+
+    conn.on('message', function(data) {
+      log('Received: ' + data, 'blue');
+    });
+
+    conn.on('close', function(e) {
+      setStatus('Disconnected', 'red');
+      log('Disconnected (code: ' + e.code + ')', 'red');
+      document.getElementById('connect-btn').disabled = false;
+      document.getElementById('disconnect-btn').disabled = true;
+      document.getElementById('msg-input').disabled = true;
+      document.getElementById('send-btn').disabled = true;
+    });
+
+    conn.on('error', function() {
+      log('Error occurred', 'red');
+    });
+  }
+
+  function doDisconnect() {
+    if (conn) conn.close();
+  }
+
+  function doSend() {
+    const input = document.getElementById('msg-input');
+    const msg = input.value.trim();
+    if (msg && conn) {
+      conn.send(msg);
+      log('Sent: ' + msg, '#333');
+      input.value = '';
+    }
+    input.focus();
+  }
+
+  document.getElementById('msg-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSend();
+  });
+</script>
