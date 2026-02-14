@@ -4,8 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const tls_enabled = b.option(bool, "tls", "Enable TLS/HTTPS support (requires OpenSSL)") orelse false;
+
     const zzz_dep = b.dependency("zzz", .{
         .target = target,
+        .tls = tls_enabled,
     });
 
     const exe = b.addExecutable(.{
@@ -19,6 +22,14 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+
+    if (tls_enabled) {
+        exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/include" });
+        exe.root_module.linkSystemLibrary("ssl", .{});
+        exe.root_module.linkSystemLibrary("crypto", .{});
+        exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/lib" });
+        exe.root_module.link_libc = true;
+    }
 
     b.installArtifact(exe);
 

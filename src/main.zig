@@ -419,11 +419,10 @@ const App = zzz.Router.define(.{
         zzz.Router.post("/api/users", createUser),
         zzz.Router.post("/api/echo", echoBody),
         zzz.Router.post("/api/upload", uploadHandler),
-
     } ++ zzz.Router.scope("/api", &[_]zzz.HandlerFn{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &[_]zzz.RouteDef{
         zzz.Router.get("/limited", rateLimitedHandler),
     })
-    // Auth demos — each scope applies its own auth middleware
+        // Auth demos — each scope applies its own auth middleware
     ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.bearerAuth(.{ .required = true })}, &[_]zzz.RouteDef{
         zzz.Router.get("/bearer", bearerDemo),
     }) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.basicAuth(.{ .required = true })}, &[_]zzz.RouteDef{
@@ -449,6 +448,11 @@ pub fn main(init: std.process.Init) !void {
     var server = zzz.Server.init(allocator, .{
         .host = "127.0.0.1",
         .port = 9000,
+        // To enable HTTPS, build with: zig build -Dtls run
+        // .tls = .{
+        //     .cert_file = "certs/dev.pem",
+        //     .key_file = "certs/dev-key.pem",
+        // },
     }, App.handler);
 
     try server.listen(io);
