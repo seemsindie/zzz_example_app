@@ -1,0 +1,4 @@
+<li id="todo-{{id}}">
+  <span>{{text}}</span>
+  <button hx-delete="/todos/{{id}}" hx-target="#todo-list" hx-swap="innerHTML">Delete</button>
+</li>

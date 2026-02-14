@@ -1,0 +1,15 @@
+<h1>{{title}}</h1>
+<p>{{description}}</p>
+
+<div hx-headers='{"X-CSRF-Token": "{{csrf_token}}"}'>
+<form hx-post="/todos" hx-target="#todo-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
+  <input type="text" name="text" placeholder="Add a todo..." required>
+  <button type="submit">Add</button>
+</form>
+
+<div id="todo-list">
+  {{#if has_items}}<ul>
+  {{#each items}}{{> todo_item}}{{/each}}
+</ul>{{else}}<p>No todos yet. Add one above!</p>{{/if}}
+</div>
+</div>

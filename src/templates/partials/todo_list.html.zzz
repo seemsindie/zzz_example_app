@@ -1,0 +1,3 @@
+{{#if has_items}}<ul>
+  {{#each items}}{{> todo_item}}{{/each}}
+</ul>{{else}}<p>No todos yet. Add one above!</p>{{/if}}
