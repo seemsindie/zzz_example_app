@@ -517,7 +517,7 @@ const App = zzz.Router.define(.{
         zzz.gzipCompress(.{}),
         requestId,
         zzz.cors(.{}),
-        zzz.htmx(.{}),
+        zzz.htmx(.{ .htmx_cdn_version = "2.0.4" }), // configurable CDN version
         zzz.bodyParser,
         zzz.session(.{}),
         zzz.csrf(.{}),
