@@ -1,0 +1,15 @@
+<h1>{{title}}</h1>
+<p>{{description}}</p>
+
+<h2>Counter Demo</h2>
+<div id="counter" hx-headers='{"X-CSRF-Token": "{{csrf_token}}"}'>
+  {{> counter}}
+</div>
+
+<h2>Greeting Demo</h2>
+<div>
+  <input type="text" name="name" placeholder="Enter your name"
+         hx-get="/htmx/greeting" hx-target="#greeting" hx-trigger="keyup changed delay:300ms"
+         hx-include="this">
+  <div id="greeting"><p>Type your name above...</p></div>
+</div>

@@ -19,6 +19,11 @@ const AppLayout = zzz.templateWithPartials(
 
 const IndexContent = zzz.template(@embedFile("templates/index.html.zzz"));
 const AboutContent = zzz.template(@embedFile("templates/about.html.zzz"));
+const HtmxDemoContent = zzz.templateWithPartials(
+    @embedFile("templates/htmx_demo.html.zzz"),
+    .{ .counter = @embedFile("templates/partials/counter.html.zzz") },
+);
+const CounterPartial = zzz.template(@embedFile("templates/partials/counter.html.zzz"));
 
 // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -45,6 +50,7 @@ const index_routes = [_]RouteItem{
     .{ .html = "GET /auth/bearer &mdash; Bearer token auth demo (requires Authorization header)" },
     .{ .html = "GET /auth/basic &mdash; Basic auth demo (curl -u user:pass)" },
     .{ .html = "GET /auth/jwt &mdash; JWT auth demo (requires valid HS256 token)" },
+    .{ .html = "<a href=\"/htmx\">htmx Demo</a> &mdash; htmx counter + greeting demos" },
 };
 
 fn index(ctx: *zzz.Context) !void {
@@ -327,6 +333,46 @@ fn errorDemo(_: *zzz.Context) !void {
     return error.IntentionalDemoError;
 }
 
+// ── htmx demos ────────────────────────────────────────────────────────
+
+/// htmx demo page — counter + greeting.
+///
+/// Try: curl http://127.0.0.1:9000/htmx
+fn htmxDemo(ctx: *zzz.Context) !void {
+    const csrf_token = ctx.getAssign("csrf_token") orelse "";
+    try ctx.renderWithLayoutAndYields(AppLayout, HtmxDemoContent, .ok, .{
+        .title = "htmx Demo",
+        .description = "Interactive demos powered by htmx.",
+        .count = "0",
+        .csrf_token = csrf_token,
+    }, .{
+        .head = "<script src=\"https://unpkg.com/htmx.org@2.0.4\"></script>",
+    });
+}
+
+/// htmx counter increment — returns just the counter partial (no layout).
+///
+/// Try: curl -X POST -H "HX-Request: true" http://127.0.0.1:9000/htmx/increment
+fn htmxIncrement(ctx: *zzz.Context) !void {
+    const raw = ctx.param("count") orelse "0";
+    const current = std.fmt.parseInt(u32, raw, 10) catch 0;
+    var buf: [16]u8 = undefined;
+    const next_str = std.fmt.bufPrint(&buf, "{d}", .{current + 1}) catch "1";
+    try ctx.renderPartial(CounterPartial, .ok, .{ .count = next_str });
+    ctx.htmxTrigger("counterUpdated");
+}
+
+/// htmx greeting — returns an HTML fragment.
+///
+/// Try: curl -H "HX-Request: true" "http://127.0.0.1:9000/htmx/greeting?name=World"
+fn htmxGreeting(ctx: *zzz.Context) !void {
+    const raw_name = ctx.param("name") orelse "stranger";
+    const name = zzz.urlDecode(ctx.allocator, raw_name) catch raw_name;
+    var buf: [256]u8 = undefined;
+    const body = std.fmt.bufPrint(&buf, "<p>Hello, <strong>{s}</strong>!</p>", .{name}) catch "<p>Hello!</p>";
+    ctx.html(.ok, body);
+}
+
 // ── Auth demos ────────────────────────────────────────────────────────
 
 /// Bearer token demo.
@@ -382,6 +428,7 @@ const App = zzz.Router.define(.{
         zzz.gzipCompress(.{}),
         requestId,
         zzz.cors(.{}),
+        zzz.htmx(.{}),
         zzz.bodyParser,
         zzz.session(.{}),
         zzz.csrf(.{}),
@@ -404,6 +451,11 @@ const App = zzz.Router.define(.{
         zzz.Router.get("/old-page", oldPage),
         zzz.Router.get("/set-cookie", setCookieDemo),
         zzz.Router.get("/delete-cookie", deleteCookieDemo),
+
+        // htmx demo routes
+        zzz.Router.get("/htmx", htmxDemo),
+        zzz.Router.post("/htmx/increment", htmxIncrement),
+        zzz.Router.get("/htmx/greeting", htmxGreeting),
 
         // API routes
         zzz.Router.get("/api/status", apiStatus).named("api_status"),

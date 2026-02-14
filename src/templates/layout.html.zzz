@@ -3,11 +3,13 @@
 <head>
   <title>{{title}} - Zzz</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  {{{yield_head}}}
 </head>
 <body>
   {{> nav}}
   <main>{{{yield}}}</main>
   <footer><p>Powered by Zzz</p></footer>
   <script src="/static/js/app.js"></script>
+  {{{yield_scripts}}}
 </body>
 </html>

@@ -1,0 +1,3 @@
+<p>Count: {{count}}</p>
+<input type="hidden" name="count" value="{{count}}">
+<button hx-post="/htmx/increment" hx-target="#counter" hx-swap="innerHTML" hx-include="closest div">Increment</button>
