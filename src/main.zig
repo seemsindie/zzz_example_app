@@ -8,46 +8,44 @@ fn requestId(ctx: *zzz.Context) !void {
     try ctx.next();
 }
 
+// ── Templates ──────────────────────────────────────────────────────────
+
+const IndexTemplate = zzz.template(@embedFile("templates/index.html.zzz"));
+
 // ── Handlers ───────────────────────────────────────────────────────────
 
+const RouteItem = struct { html: []const u8 };
+
+const index_routes = [_]RouteItem{
+    .{ .html = "<a href=\"/about\">About</a>" },
+    .{ .html = "<a href=\"/api/status\">API Status</a>" },
+    .{ .html = "<a href=\"/api/users/1\">User 1</a>" },
+    .{ .html = "<a href=\"/api/users/42\">User 42</a>" },
+    .{ .html = "<a href=\"/api/posts\">Posts</a>" },
+    .{ .html = "<a href=\"/api/posts/hello-world\">Post: hello-world</a>" },
+    .{ .html = "POST /api/echo &mdash; body parser echo (JSON, form, multipart, text)" },
+    .{ .html = "POST /api/upload &mdash; file upload demo" },
+    .{ .html = "<a href=\"/login\">Login</a> &mdash; session + CSRF token demo" },
+    .{ .html = "<a href=\"/dashboard\">Dashboard</a> &mdash; session data demo" },
+    .{ .html = "POST /api/protected &mdash; CSRF-protected endpoint" },
+    .{ .html = "<a href=\"/old-page\">Old Page</a> &mdash; redirect demo (301)" },
+    .{ .html = "<a href=\"/set-cookie\">Set Cookie</a> &mdash; cookie demo" },
+    .{ .html = "<a href=\"/delete-cookie\">Delete Cookie</a> &mdash; cookie deletion demo" },
+    .{ .html = "<a href=\"/api/limited\">Rate Limited</a> &mdash; rate limiting demo (10 req/min)" },
+    .{ .html = "<a href=\"/download/build.zig\">Download build.zig</a> &mdash; sendFile demo" },
+    .{ .html = "<a href=\"/error-demo\">Error Demo</a> &mdash; global error handler demo" },
+    .{ .html = "GET /auth/bearer &mdash; Bearer token auth demo (requires Authorization header)" },
+    .{ .html = "GET /auth/basic &mdash; Basic auth demo (curl -u user:pass)" },
+    .{ .html = "GET /auth/jwt &mdash; JWT auth demo (requires valid HS256 token)" },
+};
+
 fn index(ctx: *zzz.Context) !void {
-    ctx.html(.ok,
-        \\<!DOCTYPE html>
-        \\<html>
-        \\<head>
-        \\  <title>Zzz Example App</title>
-        \\  <link rel="stylesheet" href="/static/css/style.css">
-        \\</head>
-        \\<body>
-        \\  <h1>Zzz Example App</h1>
-        \\  <p>A sample app built with the Zzz web framework.</p>
-        \\  <h2>Routes</h2>
-        \\  <ul>
-        \\    <li><a href="/about">About</a></li>
-        \\    <li><a href="/api/status">API Status</a></li>
-        \\    <li><a href="/api/users/1">User 1</a></li>
-        \\    <li><a href="/api/users/42">User 42</a></li>
-        \\    <li><a href="/api/posts">Posts</a></li>
-        \\    <li><a href="/api/posts/hello-world">Post: hello-world</a></li>
-        \\    <li>POST /api/echo — body parser echo (JSON, form, multipart, text)</li>
-        \\    <li>POST /api/upload — file upload demo</li>
-        \\    <li><a href="/login">Login</a> — session + CSRF token demo</li>
-        \\    <li><a href="/dashboard">Dashboard</a> — session data demo</li>
-        \\    <li>POST /api/protected — CSRF-protected endpoint</li>
-        \\    <li><a href="/old-page">Old Page</a> — redirect demo (301)</li>
-        \\    <li><a href="/set-cookie">Set Cookie</a> — cookie demo</li>
-        \\    <li><a href="/delete-cookie">Delete Cookie</a> — cookie deletion demo</li>
-        \\    <li><a href="/api/limited">Rate Limited</a> — rate limiting demo (10 req/min)</li>
-        \\    <li><a href="/download/build.zig">Download build.zig</a> — sendFile demo</li>
-        \\    <li><a href="/error-demo">Error Demo</a> — global error handler demo</li>
-        \\    <li>GET /auth/bearer — Bearer token auth demo (requires Authorization header)</li>
-        \\    <li>GET /auth/basic — Basic auth demo (curl -u user:pass)</li>
-        \\    <li>GET /auth/jwt — JWT auth demo (requires valid HS256 token)</li>
-        \\  </ul>
-        \\  <script src="/static/js/app.js"></script>
-        \\</body>
-        \\</html>
-    );
+    try ctx.render(IndexTemplate, .ok, .{
+        .title = "Zzz Example App",
+        .description = "A sample app built with the Zzz web framework.",
+        .show_routes = true,
+        .routes = @as([]const RouteItem, &index_routes),
+    });
 }
 
 fn about(ctx: *zzz.Context) !void {
