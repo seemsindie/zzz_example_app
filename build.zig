@@ -5,6 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const tls_enabled = b.option(bool, "tls", "Enable TLS/HTTPS support (requires OpenSSL)") orelse false;
+    const postgres_enabled = b.option(bool, "postgres", "Enable PostgreSQL support (requires libpq)") orelse false;
 
     const zzz_dep = b.dependency("zzz", .{
         .target = target,
@@ -13,6 +14,7 @@ pub fn build(b: *std.Build) void {
 
     const zzz_db_dep = b.dependency("zzz_db", .{
         .target = target,
+        .postgres = postgres_enabled,
     });
 
     const exe = b.addExecutable(.{
@@ -34,6 +36,15 @@ pub fn build(b: *std.Build) void {
     if (target.result.os.tag == .macos) {
         exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/sqlite/include" });
         exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/sqlite/lib" });
+    }
+
+    // PostgreSQL linking
+    if (postgres_enabled) {
+        exe.root_module.linkSystemLibrary("pq", .{});
+        if (target.result.os.tag == .macos) {
+            exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/libpq/include" });
+            exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/libpq/lib" });
+        }
     }
 
     if (tls_enabled) {
