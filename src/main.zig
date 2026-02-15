@@ -43,6 +43,56 @@ const TodoListPartial = zzz.templateWithPartials(
 
 const JobsDemoContent = zzz.template(@embedFile("templates/jobs_demo.html.zzz"));
 
+// ── API Doc Types ──────────────────────────────────────────────────────
+
+const ApiStatusResponse = struct {
+    status: []const u8,
+    framework: []const u8,
+    version: []const u8,
+};
+
+const UserResponse = struct {
+    id: i64,
+    name: []const u8,
+    email: []const u8,
+};
+
+const UserListResponse = struct {
+    users: []const UserResponse,
+};
+
+const CreateUserRequest = struct {
+    name: []const u8,
+    email: []const u8,
+};
+
+const PostResponse = struct {
+    slug: []const u8,
+    title: []const u8,
+    body: []const u8,
+};
+
+const PostListResponse = struct {
+    posts: []const PostResponse,
+};
+
+const CreatePostRequest = struct {
+    title: []const u8,
+    body: []const u8,
+};
+
+const JobEnqueueRequest = struct {
+    worker: []const u8,
+    args: []const u8,
+};
+
+const JobStatsResponse = struct {
+    available: i64,
+    executing: i64,
+    completed: i64,
+    discarded: i64,
+};
+
 // ── Handlers ───────────────────────────────────────────────────────────
 
 const RouteItem = struct { html: []const u8 };
@@ -74,6 +124,7 @@ const index_routes = [_]RouteItem{
     .{ .html = "<a href=\"/chat\">Channel Chat</a> &mdash; Phoenix-style channel chat with zzz.js" },
     .{ .html = "<a href=\"/db\">Database Demo</a> &mdash; SQLite CRUD with zzz_db" },
     .{ .html = "<a href=\"/jobs\">Background Jobs</a> &mdash; zzz_jobs demo" },
+    .{ .html = "<a href=\"/api/docs\">API Docs</a> &mdash; Swagger UI (OpenAPI 3.1.0)" },
 } ++ if (pg_enabled) [_]RouteItem{
     .{ .html = "<a href=\"/pg\">PostgreSQL Demo</a> &mdash; CRUD with PostgreSQL via zzz_db" },
 } else [_]RouteItem{};
@@ -1034,6 +1085,139 @@ const pg = if (pg_enabled) struct {
     }
 } else struct {};
 
+// ── Routes ─────────────────────────────────────────────────────────────
+
+const routes = zzz.Router.resource("/api/posts", .{
+    .index = listPosts,
+    .show = getPost,
+    .create = createPost,
+    .update = updatePost,
+    .delete_handler = deletePost,
+}) ++ &[_]zzz.RouteDef{
+    zzz.Router.get("/", index).named("home"),
+    zzz.Router.get("/about", about).named("about"),
+
+    // Session / Cookie / Redirect demos
+    zzz.Router.get("/login", loginPage).named("login"),
+    zzz.Router.get("/dashboard", dashboard).named("dashboard"),
+    zzz.Router.post("/api/protected", protectedAction),
+    zzz.Router.get("/old-page", oldPage),
+    zzz.Router.get("/set-cookie", setCookieDemo),
+    zzz.Router.get("/delete-cookie", deleteCookieDemo),
+
+    // WebSocket demo routes
+    zzz.Router.get("/ws-demo", wsDemo),
+    zzz.Router.ws("/ws/echo", .{
+        .on_open = wsEchoOpen,
+        .on_message = wsEchoMessage,
+        .on_close = wsEchoClose,
+    }),
+
+    // Channel chat demo routes
+    zzz.Router.get("/chat", chatDemo),
+    zzz.Router.channel("/socket", .{
+        .channels = &.{roomChannelDef},
+    }),
+
+    // htmx demo routes
+    zzz.Router.get("/htmx", htmxDemo),
+    zzz.Router.post("/htmx/increment", htmxIncrement),
+    zzz.Router.get("/htmx/greeting", htmxGreeting),
+
+    // htmx CRUD todo routes
+    zzz.Router.get("/todos", htmxTodos),
+    zzz.Router.post("/todos", htmxTodoAdd),
+    zzz.Router.delete("/todos/:id", htmxTodoDelete),
+
+    // Database demo routes
+    zzz.Router.get("/db", dbDemo),
+    zzz.Router.post("/db/add", dbAddUser),
+    zzz.Router.post("/db/delete/:id", dbDeleteUser),
+
+    // Jobs demo routes
+    zzz.Router.get("/jobs", jobsDemo),
+    zzz.Router.post("/jobs/enqueue", jobsEnqueue).doc(.{
+        .summary = "Enqueue a background job",
+        .description = "Enqueue a new background job for async processing.",
+        .tag = "Jobs",
+        .request_body = JobEnqueueRequest,
+    }),
+    zzz.Router.get("/jobs/stats", jobsStats).doc(.{
+        .summary = "Get job queue stats",
+        .description = "Returns current job queue statistics.",
+        .tag = "Jobs",
+        .response_body = JobStatsResponse,
+    }),
+} ++ (if (pg_enabled) &[_]zzz.RouteDef{
+    // PostgreSQL demo routes
+    zzz.Router.get("/pg", pg.pgDemo),
+    zzz.Router.post("/pg/add", pg.pgAddUser),
+    zzz.Router.post("/pg/delete/:id", pg.pgDeleteUser),
+} else &[_]zzz.RouteDef{}) ++ &[_]zzz.RouteDef{
+
+    // API routes — documented with .doc() for Swagger
+    zzz.Router.get("/api/status", apiStatus).named("api_status").doc(.{
+        .summary = "Health check",
+        .description = "Returns the API status and version info.",
+        .tag = "System",
+        .response_body = ApiStatusResponse,
+    }),
+    zzz.Router.get("/api/users", listUsers).named("users").doc(.{
+        .summary = "List all users",
+        .tag = "Users",
+        .response_body = UserListResponse,
+    }),
+    zzz.Router.get("/api/users/:id", getUser).named("user").doc(.{
+        .summary = "Get user by ID",
+        .tag = "Users",
+        .response_body = UserResponse,
+    }),
+    zzz.Router.post("/api/users", createUser).doc(.{
+        .summary = "Create a new user",
+        .tag = "Users",
+        .request_body = CreateUserRequest,
+        .response_body = UserResponse,
+    }),
+    zzz.Router.post("/api/echo", echoBody).doc(.{
+        .summary = "Echo request body",
+        .description = "Echoes back the parsed request body. Supports JSON, form, multipart, and text.",
+        .tag = "System",
+    }),
+    zzz.Router.post("/api/upload", uploadHandler).doc(.{
+        .summary = "Upload a file",
+        .description = "Upload a file via multipart form data.",
+        .tag = "System",
+    }),
+} ++ zzz.Router.scope("/api", &[_]zzz.HandlerFn{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &[_]zzz.RouteDef{
+    zzz.Router.get("/limited", rateLimitedHandler).doc(.{
+        .summary = "Rate-limited endpoint",
+        .description = "Demonstrates rate limiting (10 requests/minute).",
+        .tag = "System",
+    }),
+})
+    // Auth demos — each scope applies its own auth middleware
+++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.bearerAuth(.{ .required = true })}, &[_]zzz.RouteDef{
+    zzz.Router.get("/bearer", bearerDemo),
+}) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.basicAuth(.{ .required = true })}, &[_]zzz.RouteDef{
+    zzz.Router.get("/basic", basicDemo),
+}) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.jwtAuth(.{ .secret = "zzz-demo-secret", .required = true })}, &[_]zzz.RouteDef{
+    zzz.Router.get("/jwt", jwtDemo),
+}) ++ &[_]zzz.RouteDef{
+
+    // File download demo
+    zzz.Router.get("/download/:filename", downloadFile),
+
+    // Error handler demo
+    zzz.Router.get("/error-demo", errorDemo),
+};
+
+// Generate OpenAPI spec at comptime — zero runtime cost
+const api_spec = zzz.swagger.generateSpec(.{
+    .title = "Example App API",
+    .version = "0.1.0",
+    .description = "Demo API built with zzz",
+}, routes);
+
 // ── Router ─────────────────────────────────────────────────────────────
 
 const App = zzz.Router.define(.{
@@ -1043,96 +1227,15 @@ const App = zzz.Router.define(.{
         zzz.gzipCompress(.{}),
         requestId,
         zzz.cors(.{}),
-        zzz.htmx(.{ .htmx_cdn_version = "2.0.4" }), // configurable CDN version
+        zzz.htmx(.{ .htmx_cdn_version = "2.0.4" }),
         zzz.bodyParser,
         zzz.session(.{}),
         zzz.csrf(.{}),
         zzz.staticFiles(.{ .dir = "public", .prefix = "/static" }),
         zzz.zzzJs(.{}),
+        zzz.swagger.ui(.{ .spec_json = api_spec }),
     },
-    .routes = zzz.Router.resource("/api/posts", .{
-        .index = listPosts,
-        .show = getPost,
-        .create = createPost,
-        .update = updatePost,
-        .delete_handler = deletePost,
-    }) ++ &[_]zzz.RouteDef{
-        zzz.Router.get("/", index).named("home"),
-        zzz.Router.get("/about", about).named("about"),
-
-        // Session / Cookie / Redirect demos
-        zzz.Router.get("/login", loginPage).named("login"),
-        zzz.Router.get("/dashboard", dashboard).named("dashboard"),
-        zzz.Router.post("/api/protected", protectedAction),
-        zzz.Router.get("/old-page", oldPage),
-        zzz.Router.get("/set-cookie", setCookieDemo),
-        zzz.Router.get("/delete-cookie", deleteCookieDemo),
-
-        // WebSocket demo routes
-        zzz.Router.get("/ws-demo", wsDemo),
-        zzz.Router.ws("/ws/echo", .{
-            .on_open = wsEchoOpen,
-            .on_message = wsEchoMessage,
-            .on_close = wsEchoClose,
-        }),
-
-        // Channel chat demo routes
-        zzz.Router.get("/chat", chatDemo),
-        zzz.Router.channel("/socket", .{
-            .channels = &.{roomChannelDef},
-        }),
-
-        // htmx demo routes
-        zzz.Router.get("/htmx", htmxDemo),
-        zzz.Router.post("/htmx/increment", htmxIncrement),
-        zzz.Router.get("/htmx/greeting", htmxGreeting),
-
-        // htmx CRUD todo routes
-        zzz.Router.get("/todos", htmxTodos),
-        zzz.Router.post("/todos", htmxTodoAdd),
-        zzz.Router.delete("/todos/:id", htmxTodoDelete),
-
-        // Database demo routes
-        zzz.Router.get("/db", dbDemo),
-        zzz.Router.post("/db/add", dbAddUser),
-        zzz.Router.post("/db/delete/:id", dbDeleteUser),
-
-        // Jobs demo routes
-        zzz.Router.get("/jobs", jobsDemo),
-        zzz.Router.post("/jobs/enqueue", jobsEnqueue),
-        zzz.Router.get("/jobs/stats", jobsStats),
-    } ++ (if (pg_enabled) &[_]zzz.RouteDef{
-        // PostgreSQL demo routes
-        zzz.Router.get("/pg", pg.pgDemo),
-        zzz.Router.post("/pg/add", pg.pgAddUser),
-        zzz.Router.post("/pg/delete/:id", pg.pgDeleteUser),
-    } else &[_]zzz.RouteDef{}) ++ &[_]zzz.RouteDef{
-
-        // API routes
-        zzz.Router.get("/api/status", apiStatus).named("api_status"),
-        zzz.Router.get("/api/users", listUsers).named("users"),
-        zzz.Router.get("/api/users/:id", getUser).named("user"),
-        zzz.Router.post("/api/users", createUser),
-        zzz.Router.post("/api/echo", echoBody),
-        zzz.Router.post("/api/upload", uploadHandler),
-    } ++ zzz.Router.scope("/api", &[_]zzz.HandlerFn{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &[_]zzz.RouteDef{
-        zzz.Router.get("/limited", rateLimitedHandler),
-    })
-        // Auth demos — each scope applies its own auth middleware
-    ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.bearerAuth(.{ .required = true })}, &[_]zzz.RouteDef{
-        zzz.Router.get("/bearer", bearerDemo),
-    }) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.basicAuth(.{ .required = true })}, &[_]zzz.RouteDef{
-        zzz.Router.get("/basic", basicDemo),
-    }) ++ zzz.Router.scope("/auth", &[_]zzz.HandlerFn{zzz.jwtAuth(.{ .secret = "zzz-demo-secret", .required = true })}, &[_]zzz.RouteDef{
-        zzz.Router.get("/jwt", jwtDemo),
-    }) ++ &[_]zzz.RouteDef{
-
-        // File download demo
-        zzz.Router.get("/download/:filename", downloadFile),
-
-        // Error handler demo
-        zzz.Router.get("/error-demo", errorDemo),
-    },
+    .routes = routes,
 });
 
 // ── Main ───────────────────────────────────────────────────────────────
