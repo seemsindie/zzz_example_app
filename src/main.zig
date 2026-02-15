@@ -591,14 +591,14 @@ const DemoUser = struct {
     });
 };
 
-var db_pool: zzz_db.Pool = undefined;
+var db_pool: zzz_db.SqlitePool = undefined;
 var db_initialized: bool = false;
 
 const DbUserView = struct { id: []const u8, name: []const u8, email: []const u8, csrf_token: []const u8 };
 
 fn initDb() !void {
     if (db_initialized) return;
-    db_pool = try zzz_db.Pool.init(.{
+    db_pool = try zzz_db.SqlitePool.init(.{
         .size = 3,
         .connection = .{ .database = "example.db" },
     });
@@ -615,7 +615,7 @@ fn dbDemo(ctx: *zzz.Context) !void {
         return;
     };
 
-    const repo = zzz_db.Repo.init(&db_pool);
+    const repo = zzz_db.SqliteRepo.init(&db_pool);
     const q = zzz_db.Query(DemoUser).init().orderBy("id", .desc);
     const users = repo.all(DemoUser, q, ctx.allocator) catch {
         ctx.text(.internal_server_error, "Failed to load users");
@@ -659,7 +659,7 @@ fn dbAddUser(ctx: *zzz.Context) !void {
     const email = zzz.urlDecode(ctx.allocator, raw_email) catch raw_email;
 
     if (name.len > 0 and email.len > 0) {
-        const repo = zzz_db.Repo.init(&db_pool);
+        const repo = zzz_db.SqliteRepo.init(&db_pool);
         var inserted = repo.insert(DemoUser, .{
             .id = 0,
             .name = name,
@@ -683,7 +683,7 @@ fn dbDeleteUser(ctx: *zzz.Context) !void {
     const id_str = ctx.param("id") orelse "0";
     const id = std.fmt.parseInt(i64, id_str, 10) catch 0;
     if (id > 0) {
-        const repo = zzz_db.Repo.init(&db_pool);
+        const repo = zzz_db.SqliteRepo.init(&db_pool);
         repo.delete(DemoUser, .{
             .id = id,
             .name = "",
