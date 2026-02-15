@@ -17,6 +17,17 @@ pub fn build(b: *std.Build) void {
         .postgres = postgres_enabled,
     });
 
+    const zzz_jobs_dep = b.dependency("zzz_jobs", .{
+        .target = target,
+        .postgres = postgres_enabled,
+    });
+
+    const zzz_db_mod = zzz_db_dep.module("zzz_db");
+    const zzz_jobs_mod = zzz_jobs_dep.module("zzz_jobs");
+
+    // Ensure zzz_jobs uses the same zzz_db module to avoid duplicate module errors
+    zzz_jobs_mod.addImport("zzz_db", zzz_db_mod);
+
     const exe = b.addExecutable(.{
         .name = "example_app",
         .root_module = b.createModule(.{
@@ -25,7 +36,8 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "zzz", .module = zzz_dep.module("zzz") },
-                .{ .name = "zzz_db", .module = zzz_db_dep.module("zzz_db") },
+                .{ .name = "zzz_db", .module = zzz_db_mod },
+                .{ .name = "zzz_jobs", .module = zzz_jobs_mod },
             },
         }),
     });

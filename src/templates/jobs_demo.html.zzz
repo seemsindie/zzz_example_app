@@ -1,0 +1,23 @@
+<h1>{{title}}</h1>
+<p>{{description}}</p>
+
+<h2>Enqueue a Job</h2>
+<form method="POST" action="/jobs/enqueue">
+  <input type="hidden" name="_csrf_token" value="{{{csrf_token}}}">
+  <label>Worker:
+    <select name="worker">
+      <option value="echo_worker">Echo (instant success)</option>
+      <option value="slow_worker">Slow (2s delay)</option>
+      <option value="failing_worker">Failing (always errors)</option>
+    </select>
+  </label>
+  <input type="text" name="args" placeholder="Job arguments" value="hello from zzz_jobs">
+  <button type="submit">Enqueue Job</button>
+</form>
+
+<h2>Queue Stats</h2>
+<div id="stats" hx-get="/jobs/stats" hx-trigger="every 2s" hx-swap="innerHTML">
+  {{{stats_html}}}
+</div>
+
+<p><a href="/">Back to home</a></p>

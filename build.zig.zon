@@ -10,6 +10,9 @@
         .zzz_db = .{
             .path = "../zzz_db",
         },
+        .zzz_jobs = .{
+            .path = "../zzz_jobs",
+        },
     },
     .paths = .{
         "build.zig",
