@@ -1,5 +1,6 @@
 const std = @import("std");
 const zzz = @import("zzz");
+const zzz_db = @import("zzz_db");
 
 // ── Middleware ──────────────────────────────────────────────────────────
 
@@ -26,6 +27,8 @@ const HtmxDemoContent = zzz.templateWithPartials(
 const CounterPartial = zzz.template(@embedFile("templates/partials/counter.html.zzz"));
 
 const WsDemoContent = zzz.template(@embedFile("templates/ws_demo.html.zzz"));
+const ChatDemoContent = zzz.template(@embedFile("templates/chat.html.zzz"));
+const DbDemoContent = zzz.template(@embedFile("templates/db_demo.html.zzz"));
 
 const HtmxTodosContent = zzz.templateWithPartials(
     @embedFile("templates/htmx_todos.html.zzz"),
@@ -64,6 +67,8 @@ const index_routes = [_]RouteItem{
     .{ .html = "<a href=\"/htmx\">htmx Demo</a> &mdash; htmx counter + greeting demos" },
     .{ .html = "<a href=\"/todos\">Todo List</a> &mdash; htmx CRUD demo" },
     .{ .html = "<a href=\"/ws-demo\">WebSocket Demo</a> &mdash; WebSocket echo with zzz.js" },
+    .{ .html = "<a href=\"/chat\">Channel Chat</a> &mdash; Phoenix-style channel chat with zzz.js" },
+    .{ .html = "<a href=\"/db\">Database Demo</a> &mdash; SQLite CRUD with zzz_db" },
 };
 
 fn index(ctx: *zzz.Context) !void {
@@ -465,6 +470,36 @@ fn htmxTodoDelete(ctx: *zzz.Context) !void {
     });
 }
 
+// ── Channel / Chat demos ──────────────────────────────────────────────
+
+fn chatDemo(ctx: *zzz.Context) !void {
+    try ctx.renderWithLayout(AppLayout, ChatDemoContent, .ok, .{
+        .title = "Channel Chat Demo",
+    });
+}
+
+// ── RoomChannel ───────────────────────────────────────────────────────
+
+fn roomJoin(_: *zzz.Socket, _: []const u8, _: []const u8) zzz.JoinResult {
+    return .ok;
+}
+
+fn roomLeave(_: *zzz.Socket, _: []const u8) void {}
+
+fn roomHandleNewMsg(socket: *zzz.Socket, topic: []const u8, _: []const u8, payload: []const u8) void {
+    // Broadcast to all subscribers (including sender)
+    socket.broadcast(topic, "new_msg", payload);
+}
+
+const roomChannelDef: zzz.ChannelDef = .{
+    .topic_pattern = "room:*",
+    .join = &roomJoin,
+    .leave = &roomLeave,
+    .handlers = &.{
+        .{ .event = "new_msg", .handler = &roomHandleNewMsg },
+    },
+};
+
 // ── WebSocket demos ───────────────────────────────────────────────────
 
 fn wsDemo(ctx: *zzz.Context) !void {
@@ -540,6 +575,125 @@ fn jwtDemo(ctx: *zzz.Context) !void {
     ctx.json(.ok, body);
 }
 
+// ── Database Demo ──────────────────────────────────────────────────────
+
+const DemoUser = struct {
+    id: i64,
+    name: []const u8,
+    email: []const u8,
+    inserted_at: i64 = 0,
+    updated_at: i64 = 0,
+
+    pub const Meta = zzz_db.Schema.define(@This(), .{
+        .table = "demo_users",
+        .primary_key = "id",
+        .timestamps = true,
+    });
+};
+
+var db_pool: zzz_db.Pool = undefined;
+var db_initialized: bool = false;
+
+const DbUserView = struct { id: []const u8, name: []const u8, email: []const u8, csrf_token: []const u8 };
+
+fn initDb() !void {
+    if (db_initialized) return;
+    db_pool = try zzz_db.Pool.init(.{
+        .size = 3,
+        .connection = .{ .database = "example.db" },
+    });
+
+    var pc = try db_pool.checkout();
+    defer pc.release();
+    try pc.conn.exec(DemoUser.Meta.create_table);
+    db_initialized = true;
+}
+
+fn dbDemo(ctx: *zzz.Context) !void {
+    initDb() catch {
+        ctx.text(.internal_server_error, "Database initialization failed");
+        return;
+    };
+
+    const repo = zzz_db.Repo.init(&db_pool);
+    const q = zzz_db.Query(DemoUser).init().orderBy("id", .desc);
+    const users = repo.all(DemoUser, q, ctx.allocator) catch {
+        ctx.text(.internal_server_error, "Failed to load users");
+        return;
+    };
+    defer zzz_db.freeAll(DemoUser, users, ctx.allocator);
+
+    const csrf_token = ctx.getAssign("csrf_token") orelse "";
+
+    // Convert to template-friendly views (strings only)
+    var views: [64]DbUserView = undefined;
+    var id_bufs: [64][16]u8 = undefined;
+    const view_count = @min(users.len, 64);
+    for (0..view_count) |i| {
+        const id_str = std.fmt.bufPrint(&id_bufs[i], "{d}", .{users[i].id}) catch "0";
+        views[i] = .{ .id = id_str, .name = users[i].name, .email = users[i].email, .csrf_token = csrf_token };
+    }
+
+    var count_buf: [16]u8 = undefined;
+    const count_str = std.fmt.bufPrint(&count_buf, "{d}", .{view_count}) catch "0";
+
+    try ctx.renderWithLayout(AppLayout, DbDemoContent, .ok, .{
+        .title = "Database Demo",
+        .description = "SQLite CRUD operations powered by zzz_db.",
+        .has_users = view_count > 0,
+        .users = @as([]const DbUserView, views[0..view_count]),
+        .user_count = count_str,
+        .csrf_token = csrf_token,
+    });
+}
+
+fn dbAddUser(ctx: *zzz.Context) !void {
+    initDb() catch {
+        ctx.text(.internal_server_error, "Database initialization failed");
+        return;
+    };
+
+    const raw_name = ctx.param("name") orelse "";
+    const raw_email = ctx.param("email") orelse "";
+    const name = zzz.urlDecode(ctx.allocator, raw_name) catch raw_name;
+    const email = zzz.urlDecode(ctx.allocator, raw_email) catch raw_email;
+
+    if (name.len > 0 and email.len > 0) {
+        const repo = zzz_db.Repo.init(&db_pool);
+        var inserted = repo.insert(DemoUser, .{
+            .id = 0,
+            .name = name,
+            .email = email,
+        }, ctx.allocator) catch {
+            ctx.text(.internal_server_error, "Failed to insert user");
+            return;
+        };
+        zzz_db.freeOne(DemoUser, &inserted, ctx.allocator);
+    }
+
+    ctx.redirect("/db", .see_other);
+}
+
+fn dbDeleteUser(ctx: *zzz.Context) !void {
+    initDb() catch {
+        ctx.text(.internal_server_error, "Database initialization failed");
+        return;
+    };
+
+    const id_str = ctx.param("id") orelse "0";
+    const id = std.fmt.parseInt(i64, id_str, 10) catch 0;
+    if (id > 0) {
+        const repo = zzz_db.Repo.init(&db_pool);
+        repo.delete(DemoUser, .{
+            .id = id,
+            .name = "",
+            .email = "",
+        }) catch {};
+    }
+
+    ctx.redirect("/db", .see_other);
+}
+
 // ── Router ─────────────────────────────────────────────────────────────
 
 const App = zzz.Router.define(.{
@@ -582,6 +736,12 @@ const App = zzz.Router.define(.{
             .on_close = wsEchoClose,
         }),
 
+        // Channel chat demo routes
+        zzz.Router.get("/chat", chatDemo),
+        zzz.Router.channel("/socket", .{
+            .channels = &.{roomChannelDef},
+        }),
+
         // htmx demo routes
         zzz.Router.get("/htmx", htmxDemo),
         zzz.Router.post("/htmx/increment", htmxIncrement),
@@ -591,6 +751,11 @@ const App = zzz.Router.define(.{
         zzz.Router.get("/todos", htmxTodos),
         zzz.Router.post("/todos", htmxTodoAdd),
         zzz.Router.delete("/todos/:id", htmxTodoDelete),
+
+        // Database demo routes
+        zzz.Router.get("/db", dbDemo),
+        zzz.Router.post("/db/add", dbAddUser),
+        zzz.Router.post("/db/delete/:id", dbDeleteUser),
 
         // API routes
         zzz.Router.get("/api/status", apiStatus).named("api_status"),

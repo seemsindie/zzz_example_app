@@ -11,6 +11,10 @@ pub fn build(b: *std.Build) void {
         .tls = tls_enabled,
     });
 
+    const zzz_db_dep = b.dependency("zzz_db", .{
+        .target = target,
+    });
+
     const exe = b.addExecutable(.{
         .name = "example_app",
         .root_module = b.createModule(.{
@@ -19,16 +23,22 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "zzz", .module = zzz_dep.module("zzz") },
+                .{ .name = "zzz_db", .module = zzz_db_dep.module("zzz_db") },
             },
         }),
     });
+
+    // SQLite linking
+    exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/sqlite/include" });
+    exe.root_module.linkSystemLibrary("sqlite3", .{});
+    exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/sqlite/lib" });
+    exe.root_module.link_libc = true;
 
     if (tls_enabled) {
         exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/include" });
         exe.root_module.linkSystemLibrary("ssl", .{});
         exe.root_module.linkSystemLibrary("crypto", .{});
         exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/lib" });
-        exe.root_module.link_libc = true;
     }
 
     b.installArtifact(exe);

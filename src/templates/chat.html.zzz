@@ -1,0 +1,111 @@
+<h1>Channel Chat Demo</h1>
+<p>Real-time chat using Phoenix-style channels. Open in multiple tabs to test broadcasting.</p>
+
+<div style="max-width: 600px; margin: 2rem auto;">
+  <div id="status" style="padding: 0.5rem; margin-bottom: 1rem; background: #f0f0f0; border-radius: 4px;">
+    Status: <span id="ch-status">Disconnected</span>
+  </div>
+
+  <div style="margin-bottom: 1rem;">
+    <label>Username: <input type="text" id="username" value="user" style="padding: 0.25rem;" /></label>
+    <button id="join-btn" onclick="doJoin()">Join Room</button>
+    <button id="leave-btn" onclick="doLeave()" disabled>Leave</button>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+    <input type="text" id="msg-input" placeholder="Type a message..." style="flex: 1; padding: 0.5rem;" disabled />
+    <button id="send-btn" onclick="doSend()" disabled>Send</button>
+  </div>
+
+  <div id="messages" style="border: 1px solid #ccc; padding: 1rem; min-height: 200px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9rem; background: #fafafa;">
+  </div>
+</div>
+
+<script src="/__zzz/zzz.js"></script>
+<script>
+  var sock = null;
+  var channel = null;
+
+  function log(msg, color) {
+    var el = document.getElementById('messages');
+    var line = document.createElement('div');
+    line.style.color = color || '#333';
+    line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(text, color) {
+    var el = document.getElementById('ch-status');
+    el.textContent = text;
+    el.style.color = color || '#333';
+  }
+
+  function doJoin() {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var url = proto + '//' + location.host + '/socket';
+    var username = document.getElementById('username').value || 'user';
+
+    sock = Zzz.socket(url);
+    channel = sock.channel('room:lobby', { username: username });
+
+    channel.on('new_msg', function(payload) {
+      log(payload.user + ': ' + payload.body, 'blue');
+    });
+
+    channel.on('user_joined', function(payload) {
+      log(payload.user + ' joined the room', 'green');
+    });
+
+    channel.on('user_left', function(payload) {
+      log(payload.user + ' left the room', 'orange');
+    });
+
+    channel.join().then(function() {
+      setStatus('Joined room:lobby', 'green');
+      log('Joined room:lobby as ' + username, 'green');
+      document.getElementById('join-btn').disabled = true;
+      document.getElementById('leave-btn').disabled = false;
+      document.getElementById('msg-input').disabled = false;
+      document.getElementById('send-btn').disabled = false;
+    }).catch(function(err) {
+      setStatus('Join failed', 'red');
+      log('Join failed: ' + JSON.stringify(err), 'red');
+    });
+  }
+
+  function doLeave() {
+    if (channel) {
+      channel.leave().then(function() {
+        setStatus('Left room', '#888');
+        log('Left the room', 'orange');
+        document.getElementById('join-btn').disabled = false;
+        document.getElementById('leave-btn').disabled = true;
+        document.getElementById('msg-input').disabled = true;
+        document.getElementById('send-btn').disabled = true;
+      });
+    }
+  }
+
+  function doSend() {
+    var input = document.getElementById('msg-input');
+    var msg = input.value.trim();
+    var username = document.getElementById('username').value || 'user';
+    if (msg && channel) {
+      channel.push('new_msg', { body: msg, user: username });
+      input.value = '';
+    }
+    input.focus();
+  }
+
+  document.getElementById('msg-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSend();
+  });
+
+  // Reset UI on load — Firefox restores form state from previous session
+  document.getElementById('join-btn').disabled = false;
+  document.getElementById('leave-btn').disabled = true;
+  document.getElementById('msg-input').disabled = true;
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('msg-input').value = '';
+</script>
