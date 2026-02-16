@@ -1,6 +1,6 @@
 .{
     .name = .example_app,
-    .version = "0.0.0",
+    .version = "0.1.0",
     .fingerprint = 0xc8a13f69989b0e46,
     .minimum_zig_version = "0.16.0-dev.2535+b5bd49460",
     .dependencies = .{
