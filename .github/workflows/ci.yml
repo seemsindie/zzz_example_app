@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Clone zzz dependency
+      run: git clone --depth 1 https://github.com/seemsindie/zzz.git ../zzz
+    - name: Clone zzz_db dependency
+      run: git clone --depth 1 https://github.com/seemsindie/zzz_db.git ../zzz_db
+    - name: Clone zzz_jobs dependency
+      run: git clone --depth 1 https://github.com/seemsindie/zzz_jobs.git ../zzz_jobs
+    - uses: mlugg/setup-zig@v2
+      with:
+        version: 0.16.0-dev.2535+b5bd49460
+    - name: Install SQLite (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+    - name: Build
+      run: zig build

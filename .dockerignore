@@ -1,0 +1,8 @@
+.git
+.github
+zig-out
+zig-cache
+.zig-cache
+README.md
+CHANGELOG.md
+docker-compose.yml
