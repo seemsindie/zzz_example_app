@@ -29,14 +29,18 @@ pub const DbUserView = struct { id: []const u8, name: []const u8, email: []const
 
 // ── State ──────────────────────────────────────────────────────────────
 
+pub var env: *const zzz.Env = undefined;
 var db_pool: zzz_db.SqlitePool = undefined;
 var db_initialized: bool = false;
+var db_path_z: [:0]const u8 = undefined;
 
 fn initDb() !void {
     if (db_initialized) return;
+    const path = env.getDefault("SQLITE_PATH", "example.db");
+    db_path_z = try std.heap.page_allocator.dupeZ(u8, path);
     db_pool = try zzz_db.SqlitePool.init(.{
         .size = 3,
-        .connection = .{ .database = "example.db" },
+        .connection = .{ .database = db_path_z },
     });
 
     var pc = try db_pool.checkout();

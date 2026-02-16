@@ -1,5 +1,9 @@
 .zig-cache/
 zig-out/
+zig-pkg/
 *.o
 *.d
 example.db*
+.env
+.env.*
+!.env.example

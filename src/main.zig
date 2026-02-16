@@ -84,9 +84,16 @@ pub fn main(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;
 
+    var env = try zzz.Env.init(allocator, .{});
+    defer env.deinit();
+
+    // Wire env into controllers that need it
+    db_ctrl.env = &env;
+    pg_ctrl.setEnv(&env);
+
     var server = zzz.Server.init(allocator, .{
-        .host = "127.0.0.1",
-        .port = 9000,
+        .host = env.getDefault("HOST", "127.0.0.1"),
+        .port = env.getInt(u16, "PORT", 9000),
     }, App.handler);
 
     try server.listen(io);

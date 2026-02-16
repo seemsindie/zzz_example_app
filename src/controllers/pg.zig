@@ -7,6 +7,12 @@ pub const pg_enabled = zzz_db.postgres_enabled;
 // Routes — empty when PostgreSQL is disabled
 pub const routes: []const zzz.RouteDef = if (pg_enabled) pg_impl.routes else &[_]zzz.RouteDef{};
 
+pub fn setEnv(e: *const zzz.Env) void {
+    if (pg_enabled) {
+        pg_impl.env = e;
+    }
+}
+
 // Implementation — only compiled when PostgreSQL is enabled
 const pg_impl = if (pg_enabled) struct {
     const db_mod = @import("db.zig");
@@ -16,14 +22,18 @@ const pg_impl = if (pg_enabled) struct {
     const DemoUser = db_mod.DemoUser;
     const DbUserView = db_mod.DbUserView;
 
+    var env: *const zzz.Env = undefined;
     var pg_pool: zzz_db.PgPool = undefined;
     var pg_initialized: bool = false;
+    var db_url_z: [:0]const u8 = undefined;
 
     fn initPgDb() !void {
         if (pg_initialized) return;
+        const url = env.getDefault("DATABASE_URL", "host=localhost dbname=zzz_demo user=zzz password=zzz");
+        db_url_z = try std.heap.page_allocator.dupeZ(u8, url);
         pg_pool = try zzz_db.PgPool.init(.{
             .size = 3,
-            .connection = .{ .database = "host=localhost dbname=zzz_demo user=zzz password=zzz" },
+            .connection = .{ .database = db_url_z },
         });
 
         var pc = try pg_pool.checkout();

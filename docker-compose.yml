@@ -1,4 +1,15 @@
 services:
+  app:
+    build: .
+    ports:
+      - "9000:9000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "9000"
+      DATABASE_URL: "host=postgres dbname=zzz_demo user=zzz password=zzz"
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:17
     environment:

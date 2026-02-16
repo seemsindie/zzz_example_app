@@ -1,8 +1,12 @@
-.git
+.env
+.env.*
+!.env.example
+zig-cache/
+zig-out/
+.zig-cache/
+example.db
+.git/
 .github
-zig-out
-zig-cache
-.zig-cache
 README.md
 CHANGELOG.md
 docker-compose.yml
