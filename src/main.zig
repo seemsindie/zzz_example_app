@@ -1,5 +1,6 @@
 const std = @import("std");
 const zzz = @import("zzz");
+const app_config = @import("app_config");
 
 // ── Controllers ───────────────────────────────────────────────────────
 
@@ -87,13 +88,16 @@ pub fn main(init: std.process.Init) !void {
     var env = try zzz.Env.init(allocator, .{});
     defer env.deinit();
 
+    // Merge comptime config (from -Denv=dev/prod) with runtime .env overrides
+    const config = zzz.mergeWithEnv(@TypeOf(app_config.config), app_config.config, &env);
+
     // Wire env into controllers that need it
     db_ctrl.env = &env;
     pg_ctrl.setEnv(&env);
 
     var server = zzz.Server.init(allocator, .{
-        .host = env.getDefault("HOST", "127.0.0.1"),
-        .port = env.getInt(u16, "PORT", 9000),
+        .host = config.host,
+        .port = config.port,
     }, App.handler);
 
     try server.listen(io);
