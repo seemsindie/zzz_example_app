@@ -13,6 +13,12 @@
         .zzz_jobs = .{
             .path = "../zzz_jobs",
         },
+        .zzz_mailer = .{
+            .path = "../zzz_mailer",
+        },
+        .zzz_template = .{
+            .path = "../zzz_template",
+        },
     },
     .paths = .{
         "build.zig",

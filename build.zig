@@ -23,11 +23,25 @@ pub fn build(b: *std.Build) void {
         .postgres = postgres_enabled,
     });
 
+    const zzz_mailer_dep = b.dependency("zzz_mailer", .{
+        .target = target,
+    });
+
+    const zzz_template_dep = b.dependency("zzz_template", .{
+        .target = target,
+    });
+    const zzz_template_mod = zzz_template_dep.module("zzz_template");
+
     const zzz_db_mod = zzz_db_dep.module("zzz_db");
     const zzz_jobs_mod = zzz_jobs_dep.module("zzz_jobs");
+    const zzz_mailer_mod = zzz_mailer_dep.module("zzz_mailer");
 
     // Ensure zzz_jobs uses the same zzz_db module to avoid duplicate module errors
     zzz_jobs_mod.addImport("zzz_db", zzz_db_mod);
+
+    // Ensure zzz and zzz_mailer use the same zzz_template module
+    zzz_mailer_mod.addImport("zzz_template", zzz_template_mod);
+    zzz_dep.module("zzz").addImport("zzz_template", zzz_template_mod);
 
     // Build config path from -Denv option: config/dev.zig, config/prod.zig, etc.
     var config_path_buf: [64]u8 = undefined;
@@ -56,6 +70,8 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "zzz", .module = zzz_dep.module("zzz") },
                 .{ .name = "zzz_db", .module = zzz_db_mod },
                 .{ .name = "zzz_jobs", .module = zzz_jobs_mod },
+                .{ .name = "zzz_mailer", .module = zzz_mailer_mod },
+                .{ .name = "zzz_template", .module = zzz_template_mod },
                 .{ .name = "app_config", .module = app_config_mod },
             },
         }),
@@ -78,13 +94,12 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    if (tls_enabled) {
-        exe.root_module.linkSystemLibrary("ssl", .{});
-        exe.root_module.linkSystemLibrary("crypto", .{});
-        if (target.result.os.tag == .macos) {
-            exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/include" });
-            exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/lib" });
-        }
+    // OpenSSL linking (required for zzz_mailer SMTP adapter, and optionally for TLS)
+    exe.root_module.linkSystemLibrary("ssl", .{});
+    exe.root_module.linkSystemLibrary("crypto", .{});
+    if (target.result.os.tag == .macos) {
+        exe.root_module.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/include" });
+        exe.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/openssl@3/lib" });
     }
 
     b.installArtifact(exe);

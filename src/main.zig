@@ -12,6 +12,7 @@ const htmx_ctrl = @import("controllers/htmx.zig");
 const db_ctrl = @import("controllers/db.zig");
 const pg_ctrl = @import("controllers/pg.zig");
 const jobs_ctrl = @import("controllers/jobs.zig");
+const mail_ctrl = @import("controllers/mail.zig");
 const ws_ctrl = @import("controllers/ws.zig");
 const misc = @import("controllers/misc.zig");
 
@@ -31,6 +32,7 @@ const routes = api.posts_resource
     ++ htmx_ctrl.ctrl.routes
     ++ db_ctrl.ctrl.routes
     ++ jobs_ctrl.ctrl.routes
+    ++ mail_ctrl.ctrl.routes
     ++ pg_ctrl.routes
     ++ api.ctrl.routes
     ++ zzz.Router.scope("/api", &.{zzz.rateLimit(.{ .max_requests = 10, .window_seconds = 60 })}, &.{
@@ -49,7 +51,13 @@ const routes = api.posts_resource
     ++ zzz.Router.scope("/auth", &.{zzz.jwtAuth(.{ .secret = "zzz-demo-secret", .required = true })}, &.{
         zzz.Router.get("/jwt", auth.jwtDemo),
     })
-    ++ misc.ctrl.routes;
+    ++ misc.ctrl.routes
+    ++ zzz.Router.scope("/__zzz/mailbox", &.{}, &.{
+        zzz.Router.get("", mail_ctrl.mailboxInbox),
+        zzz.Router.get("/:index", mail_ctrl.mailboxDetail),
+        zzz.Router.get("/:index/html", mail_ctrl.mailboxHtml),
+        zzz.Router.post("/clear", mail_ctrl.mailboxClear),
+    });
 
 // ── Swagger ───────────────────────────────────────────────────────────
 
