@@ -5,19 +5,24 @@
     .minimum_zig_version = "0.16.0-dev.2905+5d71e3051",
     .dependencies = .{
         .zzz = .{
-            .path = "../zzz.zig",
+            .url = "git+https://github.com/seemsindie/zzz.zig#ce507f51ed64c7239a73a4a0fd19bd8c4598e728",
+            .hash = "zzz-0.2.0-beta.1-LYmrMz7CCABJNi_eyq5MH9YWyaVkGbYxeF7TfXkmCD12",
         },
         .zzz_db = .{
-            .path = "../zzz_db",
+            .url = "git+https://github.com/seemsindie/zzz_db#60dcab1e3a80001516a585602ec922a4843d6f3b",
+            .hash = "zzz_db-0.2.0-beta.1-Nj5Nlr-smQB56DSuwxSCUbqoTvb0BwLeiFntldlByRoc",
         },
         .zzz_jobs = .{
-            .path = "../zzz_jobs",
+            .url = "git+https://github.com/seemsindie/zzz_jobs#4f74ddc75c8a9bfd67837947af10d7bb3847f3f7",
+            .hash = "zzz_jobs-0.2.0-beta.1-AgagnYNgAQDdSmT2ekSMVR7BZ8RprdVDtGQoERNOcsuF",
         },
         .zzz_mailer = .{
-            .path = "../zzz_mailer",
+            .url = "git+https://github.com/seemsindie/zzz_mailer#cb78f538d04489d630d74bf401cb67682a23f520",
+            .hash = "zzz_mailer-0.2.0-beta.1-vOeL4zdvAQAiIj7YThsGToKuh9jYsB7WtEDe4fGknYcR",
         },
         .zzz_template = .{
-            .path = "../zzz_template",
+            .url = "git+https://github.com/seemsindie/zzz_template#45cec530f5f0f68d9d77ee5966ebea98302b5ea8",
+            .hash = "zzz_template-0.2.0-beta.1-907cK-UAAQAo_RGeGebvARY0_iFlQOabZOfIvhp0CrUU",
         },
     },
     .paths = .{
