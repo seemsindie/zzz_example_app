@@ -12,3 +12,5 @@ example.db*
 public/assets/app*.js
 public/assets/app*.css
 *.zon-e
+node_modules/
+bun.lock

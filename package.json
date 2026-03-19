@@ -1,0 +1,12 @@
+{
+  "name": "zzz-example-app",
+  "private": true,
+  "scripts": {
+    "build": "bun build assets/app.js --outdir public/assets --minify",
+    "watch": "bun build assets/app.js --outdir public/assets --watch"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
