@@ -1,13 +1,10 @@
 const zzz = @import("zzz");
-const home = @import("home.zig");
 
 // ── Routes ─────────────────────────────────────────────────────────────
 
 pub const ctrl = zzz.Controller.define(.{}, &.{
     zzz.Router.get("/sse-demo", sseDemo),
-    zzz.Router.scope("/events", &.{zzz.sseMiddleware(.{})}, &.{
-        zzz.Router.get("", sseEndpoint),
-    }),
+    zzz.Router.get("/events", sseEndpoint),
 });
 
 // ── Handlers ───────────────────────────────────────────────────────────
@@ -35,9 +32,9 @@ fn sseDemo(ctx: *zzz.Context) !void {
 }
 
 fn sseEndpoint(ctx: *zzz.Context) !void {
-    // The SSE middleware has already set Content-Type: text/event-stream
-    // For this demo, we just send a single event and let the connection close.
-    // In a real app, you'd enter a loop or use a channel-based approach.
+    // Send SSE-formatted response
+    // In a real app, you'd use the SseWriter with a long-lived connection.
+    // This demo sends initial events and lets the EventSource reconnect.
     ctx.respond(.ok, "text/event-stream",
         "event: message\ndata: Hello from SSE!\n\nevent: ping\ndata: connected\n\n"
     );

@@ -5,13 +5,20 @@ const zzz = @import("zzz");
 
 pub const ctrl = zzz.Controller.define(.{}, &.{
     zzz.Router.get("/cache-demo", cacheDemo),
-    zzz.Router.scope("/api/cached", &.{zzz.cacheMiddleware(.{
-        .cacheable_prefixes = &.{"/api/cached"},
-        .default_ttl_s = 10,
-    })}, &.{
-        zzz.Router.get("/time", cachedTime),
-    }),
 });
+
+// Exported separately for use with Router.scope() in main.zig
+pub fn cachedTime(ctx: *zzz.Context) !void {
+    // This will be cached — same response for 10s
+    // Use a simple counter to show caching works (same value returned while cached)
+    const counter = struct {
+        var val: u32 = 0;
+    };
+    counter.val +%= 1;
+    var buf: [64]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "{{\"request_number\": {d}}}", .{counter.val}) catch "{}";
+    ctx.json(.ok, msg);
+}
 
 // ── Handlers ───────────────────────────────────────────────────────────
 
@@ -30,11 +37,4 @@ fn cacheDemo(ctx: *zzz.Context) !void {
         \\</body>
         \\</html>
     );
-}
-
-fn cachedTime(ctx: *zzz.Context) !void {
-    // This will be cached — same response for 10s
-    var buf: [64]u8 = undefined;
-    const msg = std.fmt.bufPrint(&buf, "{{\"timestamp\": {d}}}", .{std.time.timestamp()}) catch "{}";
-    ctx.json(.ok, msg);
 }

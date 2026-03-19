@@ -58,6 +58,12 @@ const routes = api.posts_resource
     ++ sse_ctrl.ctrl.routes
     ++ cache_ctrl.ctrl.routes
     ++ ssr_ctrl.ctrl.routes
+    ++ zzz.Router.scope("/api/cached", &.{zzz.cacheMiddleware(.{
+        .cacheable_prefixes = &.{"/api/cached"},
+        .default_ttl_s = 10,
+    })}, &.{
+        zzz.Router.get("/time", cache_ctrl.cachedTime),
+    })
     ++ zzz.Router.scope("/__zzz/mailbox", &.{}, &.{
         zzz.Router.get("", mail_ctrl.mailboxInbox),
         zzz.Router.get("/:index", mail_ctrl.mailboxDetail),
