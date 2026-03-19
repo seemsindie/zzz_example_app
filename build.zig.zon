@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0-dev.2905+5d71e3051",
     .dependencies = .{
         .zzz = .{
-            .url = "git+https://github.com/seemsindie/zzz.zig#89dda879e106ba23d1ad536f9c9ab05a9384a33a",
-            .hash = "zzz-0.2.0-beta.1-LYmrM2Y9CQBDY66_19MkpSQptqpUUyaOXbc3ROKKm8Re",
+            .url = "git+https://github.com/seemsindie/zzz.zig#40ccd1cdc4ae21b7366f84c51d0d2984804b7c04",
+            .hash = "zzz-0.2.0-beta.1-LYmrM-BnCQCYDh9kRvf47PpPQPd7BxtLp9heWIS2lXHs",
         },
         .zzz_db = .{
             .url = "git+https://github.com/seemsindie/zzz_db#60dcab1e3a80001516a585602ec922a4843d6f3b",
